@@ -104,11 +104,14 @@ void addJob(job* head, job* j){
     }
 }
 
-void outputRedirect(char** argv, int index){
+void outputRedirect(char** argv, int index, int fileNotExist){
 
     char* filename = argv[index+1];
-    int ofd = open(filename,O_WRONLY|O_CREAT, S_IRWXU);
-    dup2(ofd,STDOUT_FILENO);
+    if(fileNotExist == 0){
+
+        int ofd = open(filename,O_WRONLY|O_CREAT, S_IRWXU);
+        dup2(ofd,STDOUT_FILENO);
+    } 
 }
 
 int inputRedirect(char** argv, int index){
@@ -141,16 +144,19 @@ void doFileRedirectionNoPipe(job* j, int arglength){
     allocateProcess(argvCopy);
 
     int fileNotExist = 0;
-    /*
+    
     for(int i = 0; i < arglength; i++){
 
         if(strcmp(j->argv[i],"<") == 0){
 
             fileNotExist = inputRedirect(j->argv,i);
-            
+            if(fileNotExist == 0){
+                i++;
+            }
+            fileRedirectCount++;      
         }
     }
-    */
+    
 
     int indexCopy = 0;
     //int fileNotExist = 0;
@@ -158,18 +164,20 @@ void doFileRedirectionNoPipe(job* j, int arglength){
 
         if(strcmp(j->argv[i],">") == 0){
 
-            outputRedirect(j->argv,i);
+            outputRedirect(j->argv,i,fileNotExist);
             fileRedirectCount++;
             i++;
         }
+        
         else if(strcmp(j->argv[i],"<") == 0){
 
-            fileNotExist = inputRedirect(j->argv,i);
+            //fileNotExist = inputRedirect(j->argv,i);
             if(fileNotExist == 0){
                 i++;
             }
             fileRedirectCount++;
         }
+        
         else if(strcmp(j->argv[i],"2>") == 0){
 
             errorRedirect(j->argv,i, fileNotExist);
@@ -202,18 +210,11 @@ int doFileRedirectLeftWithPipe(job* j, int startIndex, int endIndex){
     int fileRedirectCount = 0;
     int fileOutputRedirectCount = 0;
 
-    int indexCopy = 0;
     int fileNotExist = 0;
+
     for(int i = startIndex; i < endIndex; i++){
 
-        if(strcmp(j->argv[i],">") == 0){
-
-            outputRedirect(j->argv,i);
-            fileRedirectCount++;
-            fileOutputRedirectCount++;
-            i++;
-        }
-        else if(strcmp(j->argv[i],"<") == 0){
+        if(strcmp(j->argv[i],"<") == 0){
 
             fileNotExist = inputRedirect(j->argv,i);
             if(fileNotExist == 0){
@@ -221,6 +222,29 @@ int doFileRedirectLeftWithPipe(job* j, int startIndex, int endIndex){
             }
             fileRedirectCount++;
         }
+    }
+
+    int indexCopy = 0;
+    //int fileNotExist = 0;
+    for(int i = startIndex; i < endIndex; i++){
+
+        if(strcmp(j->argv[i],">") == 0){
+
+            outputRedirect(j->argv,i,fileNotExist);
+            fileRedirectCount++;
+            fileOutputRedirectCount++;
+            i++;
+        }
+        
+        else if(strcmp(j->argv[i],"<") == 0){
+
+            //fileNotExist = inputRedirect(j->argv,i);
+            if(fileNotExist == 0){
+                i++;
+            }
+            fileRedirectCount++;
+        }
+        
         else if(strcmp(j->argv[i],"2>") == 0){
 
             errorRedirect(j->argv,i, fileNotExist);
@@ -241,17 +265,10 @@ int doFileRedirectRightWithPipe(job* j, int startIndex, int endIndex){
     int fileRedirectCount = 0;
     int fileInputRedirectCount = 0;
 
-    int indexCopy = 0;
     int fileNotExist = 0;
     for(int i = startIndex; i < endIndex; i++){
 
-        if(strcmp(j->argv[i],">") == 0){
-
-            outputRedirect(j->argv,i);
-            fileRedirectCount++;
-            i++;
-        }
-        else if(strcmp(j->argv[i],"<") == 0){
+        if(strcmp(j->argv[i],"<") == 0){
 
             fileNotExist = inputRedirect(j->argv,i);
             if(fileNotExist == 0){
@@ -260,6 +277,29 @@ int doFileRedirectRightWithPipe(job* j, int startIndex, int endIndex){
             }
             fileRedirectCount++;
         }
+    }
+
+    int indexCopy = 0;
+    //int fileNotExist = 0;
+    for(int i = startIndex; i < endIndex; i++){
+
+        if(strcmp(j->argv[i],">") == 0){
+
+            outputRedirect(j->argv,i,fileNotExist);
+            fileRedirectCount++;
+            i++;
+        }
+        
+        else if(strcmp(j->argv[i],"<") == 0){
+
+            //fileNotExist = inputRedirect(j->argv,i);
+            if(fileNotExist == 0){
+                fileInputRedirectCount++;
+                i++;
+            }
+            fileRedirectCount++;
+        }
+        
         else if(strcmp(j->argv[i],"2>") == 0){
 
             errorRedirect(j->argv,i, fileNotExist);
