@@ -19,7 +19,7 @@
 
 //int pipeFound = 0;
 
-int jobN = 0;
+int jobN = 1;
 
 struct processGroup {
 
@@ -110,8 +110,8 @@ void addJob(job** head, job* j){
         j->next = *head;
         *head = j;
     }
-    j->jobNumber = jobN;
-    jobN++;
+    //j->jobNumber = jobN;
+    //jobN++;
 }
 
 void outputRedirect(char** argv, int index, int fileNotExist){
@@ -424,6 +424,31 @@ void removeJob(job** head, int jobNum){
     }
 }
 
+void displayJobs(job** head){
+
+
+    job* tempHead = *head;
+    while(tempHead != NULL){
+
+        if(tempHead->state == RUNNING){
+
+            printf("[%d]+  RUNNING      ",tempHead->jobNumber);
+            int i = 0;
+            while(tempHead->argv[i] != NULL){
+
+                printf("%s ",tempHead->argv[i]);
+                if(tempHead->argv[i+1] == NULL){
+                    printf("\n");
+                }
+                i++;
+            }
+            //printf("IT REACHES HERE\n");
+        }
+        
+        tempHead = tempHead->next;
+    }
+}
+
 int main(){
 
     //setSignalsToIgnore();
@@ -451,12 +476,26 @@ int main(){
         //see if the command has a pipe
         int pipeFound = checkForPipe(j->argv);
 
+        j->state = RUNNING;
+        j->isInBackground = 0;
+        j->jobNumber = jobN;
+        jobN++;
         addJob(&head, j);
+        
 
         //printf("IT REACHES HERE\n");
+        if(strcmp(j->argv[0],"jobs") == 0){
 
-        //do the command
-        processCommand(j,pipeFound,arglength, pipefd);
+            //printf("IT REACHES HERE\n");
+            displayJobs(&head);
+        }
+        else {
+
+            //do the command
+            processCommand(j,pipeFound,arglength, pipefd);
+        }
+
+        
 
         //once process is done,free the process
         //freeProcess(j->argv);
