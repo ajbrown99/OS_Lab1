@@ -13,17 +13,25 @@
 #define maxCharsPerToken 30
 #define maxTokensPerLine 67
 
+#define STOPPED 0
+#define RUNNING 1
+#define DONE 2
+
 //int pipeFound = 0;
+
+int jobN = 0;
 
 struct processGroup {
 
     int pgid;
+    int jobNumber;
     int state;
     int status;
     char** argv;
     //int argLength;
     char** leftProcess;
     char** rightProcess;
+    int isInBackground;
     struct processGroup* next;
 };
 
@@ -91,17 +99,19 @@ void freeProcess(char** process){
     }
 }
 
-void addJob(job* head, job* j){
+void addJob(job** head, job* j){
 
-    if(head == NULL){
+    if(*head == NULL){
 
-        head = j;
+        *head = j;
     }
     else {
 
-        j->next = head;
-        head = j;
+        j->next = *head;
+        *head = j;
     }
+    j->jobNumber = jobN;
+    jobN++;
 }
 
 void outputRedirect(char** argv, int index, int fileNotExist){
@@ -109,7 +119,7 @@ void outputRedirect(char** argv, int index, int fileNotExist){
     char* filename = argv[index+1];
     if(fileNotExist == 0){
 
-        int ofd = open(filename,O_WRONLY|O_CREAT, S_IRWXU);
+        int ofd = open(filename,O_WRONLY|O_CREAT|O_TRUNC, S_IRWXU);
         dup2(ofd,STDOUT_FILENO);
     } 
 }
@@ -131,7 +141,7 @@ void errorRedirect(char** argv, int index, int fileNotExist){
     char* filename = argv[index+1];
     if(fileNotExist == 0){
 
-        int errorfd = open(filename, O_WRONLY|O_CREAT, S_IRWXU);
+        int errorfd = open(filename, O_WRONLY|O_CREAT|O_TRUNC, S_IRWXU);
         dup2(errorfd,STDERR_FILENO);
     }
 }
@@ -139,9 +149,10 @@ void errorRedirect(char** argv, int index, int fileNotExist){
 void doFileRedirectionNoPipe(job* j, int arglength){
 
     int fileRedirectCount = 0;
-    char** argvCopy;
-    argvCopy = malloc(sizeof(char*) * maxTokensPerLine);
-    allocateProcess(argvCopy);
+    //char** argvCopy;
+    //argvCopy = malloc(sizeof(char*) * maxTokensPerLine);
+    j->leftProcess = malloc(sizeof(char*) * maxTokensPerLine);
+    allocateProcess(j->leftProcess);
 
     int fileNotExist = 0;
     
@@ -185,7 +196,8 @@ void doFileRedirectionNoPipe(job* j, int arglength){
             i++;
         }
         else {
-            strcpy(argvCopy[indexCopy],j->argv[i]);
+            //strcpy(argvCopy[indexCopy],j->argv[i]);
+            strcpy(j->leftProcess[indexCopy],j->argv[i]);
             indexCopy++;
         }
     }
@@ -194,14 +206,16 @@ void doFileRedirectionNoPipe(job* j, int arglength){
 
         execvp(j->argv[0],j->argv);
 
-        freeProcess(argvCopy);
+        //freeProcess(argvCopy);
+        //freeProcess(j->leftProcess);
     }
     else {
 
-        argvCopy[indexCopy] = NULL;
-        execvp(j->argv[0], argvCopy);
+        //argvCopy[indexCopy] = NULL;
+        j->leftProcess[indexCopy] = NULL;
+        execvp(j->argv[0], j->leftProcess);
 
-        freeProcess(argvCopy);
+        //freeProcess(j->leftProcess);
     }
 }
 
@@ -333,7 +347,7 @@ void executeWithPipe(job* j, int pipeFound, int arglength, int pipefd[]){
             dup2(pipefd[1], STDOUT_FILENO);
         }
         execvp(j->leftProcess[0],j->leftProcess);
-        freeProcess(j->leftProcess);
+        //freeProcess(j->leftProcess);
     }
 
     j->pgid = fork();
@@ -346,7 +360,7 @@ void executeWithPipe(job* j, int pipeFound, int arglength, int pipefd[]){
             dup2(pipefd[0], STDIN_FILENO);
         }
         execvp(j->rightProcess[0], j->rightProcess);
-        freeProcess(j->rightProcess);
+        //freeProcess(j->rightProcess);
     }
 
     close(pipefd[0]);
@@ -376,9 +390,45 @@ void processCommand(job* j, int pipeFound, int arglength, int pipefd[]){
     
 }
 
+void setSignalsToIgnore(){
+
+    signal(SIGINT, SIG_IGN);
+    //signal(SIGTSTP, SIG_IGN);
+}
+
+void removeJob(job** head, int jobNum){
+
+    if(*head == NULL){
+        return;
+    }
+    else {
+
+        if(((*head)->jobNumber) == jobNum){
+
+            *head = ((*head)->next);
+            //free(head);
+        }
+        else {
+            job* tempHead = *head;
+            //job* next = head->next;
+            job* prev;
+            while(tempHead != NULL && tempHead->jobNumber != jobNum){
+
+                prev = tempHead;
+                tempHead = tempHead->next;
+            }
+
+            prev->next = tempHead->next;
+            free(tempHead);
+        }
+    }
+}
+
 int main(){
 
-    job* head;
+    //setSignalsToIgnore();
+
+    job* head = malloc(sizeof(job));
 
     char* input;
     pid_t cpid;
@@ -401,15 +451,23 @@ int main(){
         //see if the command has a pipe
         int pipeFound = checkForPipe(j->argv);
 
+        addJob(&head, j);
+
+        //printf("IT REACHES HERE\n");
+
         //do the command
         processCommand(j,pipeFound,arglength, pipefd);
 
-        //addJob(head, j);
-
         //once process is done,free the process
-        freeProcess(j->argv);
-        free(j->argv);
-        free(j);
+        //freeProcess(j->argv);
+        //free(j->argv);
+
+        removeJob(&head,j->jobNumber);
+
+        
+        //free(j);
+
+        //removeJob(head,j->jobNumber);
         
     }
 }        
