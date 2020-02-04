@@ -20,6 +20,9 @@
 //int pipeFound = 0;
 
 int jobN = 1;
+int mostRecentJobNumber = 0;
+
+ 
 
 struct processGroup {
 
@@ -28,10 +31,17 @@ struct processGroup {
     int state;
     int status;
     char** argv;
-    //int argLength;
+
+    int leftProcessPID;
+    int leftProcessStatus;
     char** leftProcess;
+
+    int rightProcessPID;
+    int rightProcessStatus;
     char** rightProcess;
+
     int isInBackground;
+
     struct processGroup* next;
 };
 
@@ -337,7 +347,8 @@ void executeWithPipe(job* j, int pipeFound, int arglength, int pipefd[]){
     j->rightProcess = malloc(sizeof(char*) * maxTokensPerLine);
     allocateProcess(j->rightProcess);
 
-    j->pgid = fork();
+    j->leftProcessPID = fork();
+    j->pgid = j->leftProcessPID;
     if(j->pgid == 0){
 
         int fileOutputRedirectCounter = doFileRedirectLeftWithPipe(j,0,pipeFound);
@@ -350,7 +361,8 @@ void executeWithPipe(job* j, int pipeFound, int arglength, int pipefd[]){
         //freeProcess(j->leftProcess);
     }
 
-    j->pgid = fork();
+    j->rightProcessPID = fork();
+    j->pgid = j->rightProcessPID;
     if(j->pgid == 0){
 
         int fileInputRedirectCounter = doFileRedirectRightWithPipe(j,pipeFound+1,arglength);
@@ -366,8 +378,8 @@ void executeWithPipe(job* j, int pipeFound, int arglength, int pipefd[]){
     close(pipefd[0]);
     close(pipefd[1]);
 
-    wait(&(j->status));
-    wait(&(j->status));
+    wait(&(j->leftProcessStatus));
+    wait(&(j->rightProcessStatus));
 }
 
 void processCommand(job* j, int pipeFound, int arglength, int pipefd[]){
@@ -393,7 +405,7 @@ void processCommand(job* j, int pipeFound, int arglength, int pipefd[]){
 void setSignalsToIgnore(){
 
     signal(SIGINT, SIG_IGN);
-    //signal(SIGTSTP, SIG_IGN);
+    signal(SIGTSTP, SIG_IGN);
 }
 
 void removeJob(job** head, int jobNum){
@@ -449,9 +461,19 @@ void displayJobs(job** head){
     }
 }
 
+void doForeground(){
+
+    printf("I AM IN FOREGROUND\n");
+}
+
+void doBackground(){
+
+    printf("I AM IN BACKGROUND\n");
+}
+
 int main(){
 
-    //setSignalsToIgnore();
+    setSignalsToIgnore();
 
     job* head = malloc(sizeof(job));
 
@@ -459,6 +481,9 @@ int main(){
     pid_t cpid;
 
     int pipefd[2];
+
+    //int shellPID = getpid();
+    //tcsetpgrp(STDIN_FILENO,shellPID);
 
     while(1){
 
@@ -468,6 +493,11 @@ int main(){
         allocateProcess(j->argv);
         
         input = readline("# ");
+        //if CTRL D is pressed,exit shell
+        if(input == NULL){
+            //printf("CTRL D\n");
+            exit(0);
+        }
 
         //parse the input into tokens
         int arglength = parseCommand(input, j);
@@ -489,21 +519,25 @@ int main(){
             //printf("IT REACHES HERE\n");
             displayJobs(&head);
         }
+        else if(strcmp(j->argv[0],"fg") == 0){
+
+            doForeground();
+        }
+        else if(strcmp(j->argv[0],"bg") == 0){
+
+            doBackground();
+        }
         else {
 
             //do the command
             processCommand(j,pipeFound,arglength, pipefd);
         }
 
-        
-
         //once process is done,free the process
         //freeProcess(j->argv);
         //free(j->argv);
 
         removeJob(&head,j->jobNumber);
-
-        
         //free(j);
 
         //removeJob(head,j->jobNumber);
