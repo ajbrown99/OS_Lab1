@@ -672,7 +672,7 @@ void sigCHLDHandler(int signo){
                 if(foregroundJob == NULL){
 
                     job* foundJob = searchForPID(pid);
-                    printf("BACKGROUND PROCESS DONE\n");
+                    //printf("BACKGROUND PROCESS DONE\n");
                     foundJob->state = DONE;
 
                 }
@@ -696,8 +696,7 @@ void sigCHLDHandler(int signo){
                     }
                     //if right process finished,set right pipe flag
                     if(foregroundJob->rightProcessPID == pid){
-
-                        
+ 
                         rightPipeFlag = 1;
                     }
                     //if both flags are set,then give control back to shell
@@ -731,6 +730,15 @@ void sigCHLDHandler(int signo){
 
                 }
             }
+            //there was a pipe in command
+            else {
+
+                leftPipeFlag = 1;
+                rightPipeFlag = 1;
+                foregroundJob->state = STOPPED;
+                addJob(foregroundJob);
+                tcsetpgrp(shellTerminal,getpgid(getpid()));
+            }
         }
         //terminated
         if(WIFSIGNALED(status)){
@@ -751,6 +759,13 @@ void sigCHLDHandler(int signo){
                     noPipeFlag = 1;
                     tcsetpgrp(shellTerminal,getpgid(getpid()));
                 }
+            }
+            //there is a pipe in command
+            else {
+
+                leftPipeFlag = 1;
+                rightPipeFlag = 1;
+                tcsetpgrp(shellTerminal,getpgid(getpid()));
             }
             
         }    
