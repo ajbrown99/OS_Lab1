@@ -1008,33 +1008,95 @@ void displayDoneJobs(){
     }
     else {
 
-        job* tempHead = head;
-        while(tempHead != NULL){
+        job* tempHeadOne = head;
+        job* findMostRecent = NULL;
+        while(tempHeadOne != NULL){
 
-            if(tempHead->state == DONE && tempHead->isInBackground == 1){
+            if(tempHeadOne->state == RUNNING || tempHeadOne->state == STOPPED){
 
-                printf("[%d]- DONE       ",tempHead->jobNumber);
-                int i = 0;
-                while(tempHead->argv[i] != NULL){
-
-                    printf("%s ",tempHead->argv[i]);
-                    if(tempHead->argv[i+1] == NULL){
-
-                        if(tempHead->isInBackground == 1){
-
-                            printf("&\n");
-                        }
-                        else {
-
-                            printf("\n");
-                        }
-                    }
-                    i++;
-                }
-
+                findMostRecent = tempHeadOne;
             }
-            tempHead = tempHead->next;
-        }           
+            tempHeadOne = tempHeadOne->next;
+        }
+
+        if(findMostRecent != NULL){
+            
+           // printf("%s\n",findMostRecent->argv[0]);
+            //printf("lol %p\n",findMostRecent);
+            job* tempHeadTwo = head;
+
+            while(tempHeadTwo != NULL){
+
+                if(tempHeadTwo->state == DONE && tempHeadTwo->isInBackground == 1){
+
+                    printf("[%d]- DONE       ",tempHeadTwo->jobNumber);
+                    int i = 0;
+                    while(tempHeadTwo->argv[i] != NULL){
+
+                        printf("%s ",tempHeadTwo->argv[i]);
+                        if(tempHeadTwo->argv[i+1] == NULL){
+
+                            if(tempHeadTwo->isInBackground == 1){
+
+                                printf("&\n");
+                            }
+                            else {
+
+                                printf("\n");
+                            }
+                        }
+                        i++;
+                    }
+
+                }
+                tempHeadTwo = tempHeadTwo->next;
+            }
+         
+        }
+        else {
+
+            //printf("ONLY DONE JOBS\n");
+
+            int plusDoneFlag = 0;
+            job* tempHeadThree = head;
+            while(tempHeadThree != NULL){
+
+                if(tempHeadThree->state == DONE && tempHeadThree->isInBackground == 1){
+
+                    printf("[%d]",tempHeadThree->jobNumber);
+                    if(plusDoneFlag == 0){
+
+                        printf("+ ");
+                        plusDoneFlag = 1;
+                    }
+                    else {
+
+                        printf("- ");
+                    }
+
+                    printf("DONE        ");
+                    int i = 0;
+                    while(tempHeadThree->argv[i] != NULL){
+
+                        printf("%s ",tempHeadThree->argv[i]);
+                        if(tempHeadThree->argv[i+1] == NULL){
+
+                            if(tempHeadThree->isInBackground == 1){
+
+                                printf("&\n");
+                            }
+                            else {
+
+                                printf("\n");
+                            }
+                        }
+                        i++;
+                    }
+                }
+                tempHeadThree = tempHeadThree->next;
+            }
+        }
+                  
     }
     
 }
