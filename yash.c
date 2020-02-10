@@ -388,6 +388,7 @@ void executeWithPipe(job* j, int arglength, int pipefd[]){
         //isShell = 212;
 
         int fileOutputRedirectCounter = doFileRedirectLeftWithPipe(j,0);
+        //printf("%d\n",fileOutputRedirectCounter);
         if(fileOutputRedirectCounter == 0){
 
             close(pipefd[0]);
@@ -430,6 +431,7 @@ void executeWithPipe(job* j, int arglength, int pipefd[]){
         signal(SIGTTIN,SIG_DFL);
 
         int fileInputRedirectCounter = doFileRedirectRightWithPipe(j,arglength);
+        //printf("%d\n",fileInputRedirectCounter);
         if(fileInputRedirectCounter == 0){
 
             close(pipefd[1]);
@@ -881,7 +883,35 @@ void doForeground(){
         //if command has a pipe
         else {
 
-            
+            int i = 0;
+            while(sendToFG->argv[i] != NULL){
+
+                if(strcmp(sendToFG->argv[i],"&") != 0){
+
+                    printf("%s ",sendToFG->argv[i]);
+                }
+
+                if(sendToFG->argv[i+1] == NULL){
+
+                    printf("\n");
+                }
+                i++;
+            }
+
+            sendToFG->isInBackground = 0;
+            foregroundJob = sendToFG;
+            kill(sendToFG->pgid,SIGCONT);
+            //signal(SIGTTOU,SIG_IGN);
+            tcsetpgrp(shellTerminal,sendToFG->pgid);
+            leftPipeFlag = 0;
+            rightPipeFlag = 0;
+            while(1){
+
+                if(leftPipeFlag == 1 && rightPipeFlag == 1){
+                    break;
+                }
+            }
+                        
         }
     }
     //signal(SIGCONT,sigCONTHandler);
