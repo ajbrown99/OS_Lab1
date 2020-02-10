@@ -29,7 +29,7 @@ int pipeFound = -212;
 //int pipeFound = 0;
 
 //int jobN = 1;
-int mostRecentJobNumber = 1;
+//int mostRecentJobNumber = 1;
 int foregroundJobNumber = -1;
 
 int status;
@@ -435,8 +435,7 @@ void executeWithPipe(job* j, int arglength, int pipefd[]){
             close(pipefd[1]);
             dup2(pipefd[0], STDIN_FILENO);
         }
-        execvp(j->rightProcess[0], j->rightProcess);
-        
+        execvp(j->rightProcess[0], j->rightProcess);   
     }
     /*
     else {
@@ -519,7 +518,7 @@ void displayJobs(){
     job* tempHead = head;
     while(tempHead != NULL){
 
-        
+        /*
         if(tempHead->jobNumber == mostRecentJobNumber){
 
             printf("[%d]+ ",tempHead->jobNumber);
@@ -584,9 +583,11 @@ void displayJobs(){
             }
         }  
         tempHead = tempHead->next;
+        */
     }
 }
 
+/*
 job* findMostRecentBackgroundProcess(job** findJob){
 
     job* tempFindJob = *findJob;
@@ -596,6 +597,7 @@ job* findMostRecentBackgroundProcess(job** findJob){
     }
     return tempFindJob;
 }
+*/
 
 /*
 void sigINTHandler(int signo){
@@ -658,7 +660,7 @@ void sigCHLDHandler(int signo){
     //WNOHANG:NON-BLOCKING;return immediately if no child exited
     //get pid,search thru linked list to find it,then change state
     pid_t pid;
-    while((pid = waitpid(-1,&(status),WNOHANG|WUNTRACED)) > 1){
+    while((pid = waitpid(-1,&(status),WNOHANG|WUNTRACED|WCONTINUED)) > 1){
 
         //printf("The pid I am looking for is %d\n",pid);
 
@@ -726,7 +728,9 @@ void sigCHLDHandler(int signo){
                     noPipeFlag = 1;
                     foregroundJob->state = STOPPED;
                     addJob(foregroundJob);
+                    printf("ADDED STOPPED FOREGROUND PROCESS\n");
                     tcsetpgrp(shellTerminal,getpgid(getpid()));
+                    
 
                 }
             }
@@ -824,7 +828,62 @@ void processCommand(job* j, int arglength, int pipefd[]){
 
 void doForeground(){
 
-    printf("Calling a SIGCONT signal call!\n");
+    //if no jobs,then can't do fg
+    if(head == NULL){
+        printf("yash: fg: current: no such job\n");
+    }
+    //first calculate job to send to fg
+    else {
+
+        job* temphead = head;
+        job* sendToFG;
+        while(temphead != NULL){
+
+            if((temphead->state == STOPPED && temphead->isInBackground == 0) || (temphead->state == RUNNING && temphead->isInBackground == 1)){
+
+                sendToFG = temphead;
+            }
+            temphead = temphead->next;
+        }
+
+        //no pipe
+        if(pipeFound == -1){
+
+            int i = 0;
+            while(sendToFG->argv[i] != NULL){
+
+                if(strcmp(sendToFG->argv[i],"&") != 0){
+
+                    printf("%s ",sendToFG->argv[i]);
+                }
+
+                if(sendToFG->argv[i+1] == NULL){
+
+                    printf("\n");
+                }
+                i++;
+            }
+            //printf("%d\n",sendToFG->pgid);
+            sendToFG->isInBackground = 0;
+            foregroundJob = sendToFG;
+
+            kill(sendToFG->pgid,SIGCONT);
+            signal(SIGTTOU,SIG_IGN);
+            tcsetpgrp(shellTerminal,sendToFG->pgid);
+            noPipeFlag = 0;
+            while(1){
+
+                if(noPipeFlag == 1){
+                    break;
+                }
+            }
+        }
+        //if command has a pipe
+        else {
+
+            
+        }
+    }
     //signal(SIGCONT,sigCONTHandler);
 }
 
@@ -840,6 +899,9 @@ void displayDoneJobs(){
         return;
     }
     else {
+
+        
+        /*
         job* temphead = head;
         
         while(temphead != NULL){
@@ -875,8 +937,10 @@ void displayDoneJobs(){
                 }
             }
             temphead = temphead->next;
-       }       
+       }
+       */       
     }
+    
         
 }
 
@@ -1015,10 +1079,12 @@ int main(){
                 j->state = RUNNING;
                 //j->isInBackground = 0;
                 j->jobNumber = calculateJobNumber();
+                /*
                 if(foregroundJob == NULL){
 
                     mostRecentJobNumber = j->jobNumber;
                 }
+                */
                 
                 //printf("The job number is %d\n",j->jobNumber);
                 //jobN++;
