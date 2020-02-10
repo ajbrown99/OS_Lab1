@@ -363,6 +363,27 @@ int doFileRedirectRightWithPipe(job* j, int endIndex){
     return fileInputRedirectCount;
 }
 
+int calculateJobNumber(){
+
+    if(head == NULL){
+        return 1;
+    }
+    else {
+
+        int result = -212;
+        job* tempHead = head;
+        while(tempHead != NULL){
+
+            if(result < tempHead->jobNumber){
+                
+                result = tempHead->jobNumber;
+            }
+            tempHead = tempHead->next;
+        }
+        return (result + 1);
+    }    
+}
+
 void executeWithPipe(job* j, int arglength, int pipefd[]){    
 
     pipe(pipefd);
@@ -729,6 +750,7 @@ void sigCHLDHandler(int signo){
 
                     noPipeFlag = 1;
                     foregroundJob->state = STOPPED;
+                    foregroundJob->jobNumber = calculateJobNumber();
                     addJob(foregroundJob);
                     printf("ADDED STOPPED FOREGROUND PROCESS\n");
                     tcsetpgrp(shellTerminal,getpgid(getpid()));
@@ -828,6 +850,8 @@ void processCommand(job* j, int arglength, int pipefd[]){
     }   
 }
 
+
+
 void doForeground(){
 
     //if no jobs,then can't do fg
@@ -838,7 +862,7 @@ void doForeground(){
     else {
 
         job* temphead = head;
-        job* sendToFG;
+        job* sendToFG = NULL;
         while(temphead != NULL){
 
             if((temphead->state == STOPPED && temphead->isInBackground == 0) || (temphead->state == RUNNING && temphead->isInBackground == 1)){
@@ -899,6 +923,7 @@ void doForeground(){
             }
 
             sendToFG->isInBackground = 0;
+            sendToFG->state = RUNNING;
             foregroundJob = sendToFG;
             kill(sendToFG->pgid,SIGCONT);
             //signal(SIGTTOU,SIG_IGN);
@@ -919,7 +944,54 @@ void doForeground(){
 
 void doBackground(){
 
-    printf("I AM IN BACKGROUND\n");
+    //printf("I AM IN BACKGROUND\n");
+    if(head == NULL){
+
+        printf("yash: bg: current: no such job\n");
+    }
+    else {
+
+        job* temphead = head;
+        job* sendToBg = NULL;
+
+        while(temphead != NULL){
+
+            if(temphead->isInBackground == 0 && temphead->state == STOPPED){
+
+                sendToBg = temphead;
+            }
+            temphead = temphead->next;
+        }
+
+        if(sendToBg == NULL){
+
+            printf("No processes to send to background\n");
+        }
+        else {
+
+            //if no pipe in command
+            if(pipeFound == -1){
+
+                //sendToBg->jobNumber = calculateJobNumber();
+                printf("[%d]+ RUNNING        ",sendToBg->jobNumber);
+
+                int i = 0;
+                while(sendToBg->argv[i] != NULL){
+
+                    printf("%s ",sendToBg->argv[i]);
+
+                    if(sendToBg->argv[i+1] == NULL){
+
+                        printf("&\n");
+                    }
+                    i++;
+                }
+                sendToBg->state = RUNNING;
+                sendToBg->isInBackground = 1;
+                kill(sendToBg->pgid,SIGCONT);
+            }
+        }  
+    }
 }
 
 void displayDoneJobs(){
@@ -1011,28 +1083,6 @@ void removeDoneJobs(){
         }
     }
 }
-
-int calculateJobNumber(){
-
-    if(head == NULL){
-        return 1;
-    }
-    else {
-
-        int result = -212;
-        job* tempHead = head;
-        while(tempHead != NULL){
-
-            if(result < tempHead->jobNumber){
-                
-                result = tempHead->jobNumber;
-            }
-            tempHead = tempHead->next;
-        }
-        return (result + 1);
-    }    
-}
-
 
 int main(){
 
