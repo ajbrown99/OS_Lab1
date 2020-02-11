@@ -18,9 +18,9 @@
 #define STOPPED 1
 #define DONE 2
 
-int noPipeFlag = 0;
-int leftPipeFlag = 0;
-int rightPipeFlag = 0;
+// int noPipeFlag = 0;
+// int leftPipeFlag = 0;
+// int rightPipeFlag = 0;
 int pipeFound = -212;
 
 
@@ -54,6 +54,10 @@ struct processGroup {
 
     //int jobNumCalculated;
     int hasAddedToList;
+
+    int noPipeFlag;
+    int leftPipeFlag;
+    int rightPipeFlag;
 
     struct processGroup* next;
 };
@@ -490,7 +494,7 @@ void executeWithPipe(job* j, int arglength, int pipefd[]){
         tcsetpgrp(shellTerminal,j->pgid);
         while(1){
 
-            if(leftPipeFlag == 1 && rightPipeFlag == 1){
+            if(j->leftPipeFlag == 1 && j->rightPipeFlag == 1){
                 break;
             }
         }
@@ -729,7 +733,7 @@ void sigCHLDHandler(int signo){
                 //it was a foreground process
                 else {
 
-                    noPipeFlag = 1;
+                    foregroundJob->noPipeFlag = 1;
                     foregroundJob->state = DONE;
                     tcsetpgrp(shellTerminal,getpgid(getpid()));
                 }
@@ -743,15 +747,15 @@ void sigCHLDHandler(int signo){
                     //if left process finished,set left pipe flag
                     if(foregroundJob->leftProcessPID == pid){
 
-                        leftPipeFlag = 1;
+                        foregroundJob->leftPipeFlag = 1;
                     }
                     //if right process finished,set right pipe flag
                     if(foregroundJob->rightProcessPID == pid){
  
-                        rightPipeFlag = 1;
+                        foregroundJob->rightPipeFlag = 1;
                     }
                     //if both flags are set,then give control back to shell
-                    if(leftPipeFlag == 1 && rightPipeFlag == 1){
+                    if(foregroundJob->leftPipeFlag == 1 && foregroundJob->rightPipeFlag == 1){
 
                         tcsetpgrp(shellTerminal,getpgid(getpid()));
                     }
@@ -810,7 +814,7 @@ void sigCHLDHandler(int signo){
                 //it was a foreground process
                 else {
 
-                    noPipeFlag = 1;
+                    foregroundJob->noPipeFlag = 1;
                     foregroundJob->state = STOPPED;
                     if(foregroundJob->hasAddedToList == 0){
 
@@ -826,8 +830,8 @@ void sigCHLDHandler(int signo){
             //there was a pipe in command
             else {
 
-                leftPipeFlag = 1;
-                rightPipeFlag = 1;
+                foregroundJob->leftPipeFlag = 1;
+                foregroundJob->rightPipeFlag = 1;
                 foregroundJob->state = STOPPED;
                 if(foregroundJob->hasAddedToList == 0){
 
@@ -853,15 +857,15 @@ void sigCHLDHandler(int signo){
                 //it was a foreground process
                 else {
 
-                    noPipeFlag = 1;
+                    foregroundJob->noPipeFlag = 1;
                     tcsetpgrp(shellTerminal,getpgid(getpid()));
                 }
             }
             //there is a pipe in command
             else {
 
-                leftPipeFlag = 1;
-                rightPipeFlag = 1;
+                foregroundJob->leftPipeFlag = 1;
+                foregroundJob->rightPipeFlag = 1;
                 tcsetpgrp(shellTerminal,getpgid(getpid()));
             }
             
@@ -904,7 +908,7 @@ void processCommand(job* j, int arglength, int pipefd[]){
                 while(1)
                 {
                     //printf("%d\n",flag);
-                    if(noPipeFlag == 1)
+                    if(j->noPipeFlag == 1)
                     {
                         break;
                     }
@@ -971,10 +975,10 @@ void doForeground(){
             kill(sendToFG->pgid,SIGCONT);
             signal(SIGTTOU,SIG_IGN);
             tcsetpgrp(shellTerminal,sendToFG->pgid);
-            noPipeFlag = 0;
+            sendToFG->noPipeFlag = 0;
             while(1){
 
-                if(noPipeFlag == 1){
+                if(sendToFG->noPipeFlag == 1){
                     break;
                 }
             }
@@ -1002,11 +1006,11 @@ void doForeground(){
                 kill(sendToFG->pgid,SIGCONT);
                 //signal(SIGTTOU,SIG_IGN);
                 tcsetpgrp(shellTerminal,sendToFG->pgid);
-                leftPipeFlag = 0;
-                rightPipeFlag = 0;
+                sendToFG->leftPipeFlag = 0;
+                sendToFG->rightPipeFlag = 0;
                 while(1){
 
-                    if(leftPipeFlag == 1 && rightPipeFlag == 1){
+                    if(sendToFG->leftPipeFlag == 1 && sendToFG->rightPipeFlag == 1){
                         break;
                     }
                 }
@@ -1237,9 +1241,9 @@ int main(){
 
         foregroundJob = NULL;
 
-        noPipeFlag = 0;
-        leftPipeFlag = 0;
-        rightPipeFlag = 0;
+        // noPipeFlag = 0;
+        // leftPipeFlag = 0;
+        // rightPipeFlag = 0;
 
         displayDoneJobs();
         removeDoneJobs(); 
@@ -1251,6 +1255,9 @@ int main(){
         j->argv = malloc(sizeof(char*) * maxTokensPerLine);
         allocateProcess(j->argv);
         j->hasAddedToList = 0;
+        j->noPipeFlag = 0;
+        j->leftPipeFlag = 0;
+        j->rightPipeFlag = 0;
         //if CTRL D is pressed,exit shell
         if(input == NULL){  
             //printf("\n");
