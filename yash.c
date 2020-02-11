@@ -486,7 +486,7 @@ void executeWithPipe(job* j, int arglength, int pipefd[]){
     setpgid(j->rightProcessPID,j->leftProcessPID);
     if(j->isInBackground == 0){
 
-        signal(SIGTTOU,SIG_IGN);
+        //signal(SIGTTOU,SIG_IGN);
         tcsetpgrp(shellTerminal,j->pgid);
         while(1){
 
@@ -667,6 +667,38 @@ job* searchForPID(pid_t pid){
     return temp;
 }
 
+job* searchForLeftPID(pid_t pid){
+
+    job* temp = head;
+    while(temp != NULL && (temp->leftProcessPID != pid)){
+
+        temp = temp->next;
+    }
+
+    if(temp == NULL){
+
+        return NULL;
+    }
+
+    return temp;
+}
+
+job* searchForRightPID(pid_t pid){
+
+    job* temp = head;
+    while(temp != NULL && (temp->rightProcessPID != pid)){
+
+        temp = temp->next;
+    }
+
+    if(temp == NULL){
+
+        return NULL;
+    }
+
+    return temp;
+}
+
 void sigCHLDHandler(int signo){
 
     //WUNTRACED:child stopped
@@ -680,6 +712,8 @@ void sigCHLDHandler(int signo){
 
         //terminated normally
         if(WIFEXITED(status)){
+
+            //printf("WIFEXITTED\n");
 
             //no pipe in command
             if(pipeFound == -1){
@@ -721,6 +755,42 @@ void sigCHLDHandler(int signo){
 
                         tcsetpgrp(shellTerminal,getpgid(getpid()));
                     }
+                }
+                //it was a background process
+                else {
+
+                    job* foundJob = searchForLeftPID(pid);
+                    //printf("left process PID is %d\n",foundJob->leftProcessPID);
+                    if(foundJob != NULL){
+
+                        foundJob->leftProcessState = DONE;
+                    }
+                    else {
+
+                        foundJob = searchForRightPID(pid);
+                        if(foundJob != NULL){
+
+                            foundJob->rightProcessState = DONE;
+                        }
+                    }
+
+                    if(foundJob->leftProcessState == DONE && foundJob->rightProcessState == DONE){
+
+                        //printf("PIPE DONE\n");
+                        foundJob->state = DONE;
+                        
+                    }
+                    //printf("IT REACHES HERE\n");
+                    //printf("right process PID is %d\n",foundJob->rightProcessPID);
+                    
+                    //printf("IT REACHES HERE\n");
+                    //exit(0);
+                    /*
+                    if(foundJob->leftProcessState == DONE && foundJobRight->rightProcessState == DONE){
+
+                        foundJob->state = DONE;
+                    }
+                    */
                 }
             }
                
@@ -1018,7 +1088,7 @@ void displayDoneJobs(){
             }
             tempHeadOne = tempHeadOne->next;
         }
-
+        //if there are still running/stopped jobs
         if(findMostRecent != NULL){
             
            // printf("%s\n",findMostRecent->argv[0]);
@@ -1061,7 +1131,7 @@ void displayDoneJobs(){
             job* tempHeadThree = head;
             while(tempHeadThree != NULL){
 
-                if(tempHeadThree->state == DONE && tempHeadThree->isInBackground == 1){
+                if((tempHeadThree->state == DONE && tempHeadThree->isInBackground == 1)){
 
                     printf("[%d]",tempHeadThree->jobNumber);
                     if(plusDoneFlag == 0){
