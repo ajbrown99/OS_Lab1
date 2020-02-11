@@ -1217,7 +1217,7 @@ void displayDoneJobs(char* input){
 
                     if(tempHeadTwo->state == DONE && tempHeadTwo->isInBackground == 1){
 
-                        printf("[%d]- DONE      ",tempHeadTwo->jobNumber);
+                        printf("[%d]- DONE        ",tempHeadTwo->jobNumber);
                         int i = 0;
                         while(tempHeadTwo->argv[i] != NULL){
 
