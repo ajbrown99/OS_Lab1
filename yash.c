@@ -21,7 +21,7 @@
 // int noPipeFlag = 0;
 // int leftPipeFlag = 0;
 // int rightPipeFlag = 0;
-int pipeFound = -212;
+// int pipeFound = -212;
 
 
 //enum STATUS {RUNNING,STOPPED, DONE};
@@ -41,6 +41,8 @@ struct processGroup {
     int state;
     //int status;
     char** argv;
+
+    int pipeFound;
 
     int leftProcessPID;
     int leftProcessState;
@@ -267,7 +269,7 @@ int doFileRedirectLeftWithPipe(job* j, int startIndex){
 
     int fileNotExist = 0;
 
-    for(int i = startIndex; i < pipeFound; i++){
+    for(int i = startIndex; i < j->pipeFound; i++){
 
         if(strcmp(j->argv[i],"<") == 0){
 
@@ -281,7 +283,7 @@ int doFileRedirectLeftWithPipe(job* j, int startIndex){
 
     int indexCopy = 0;
     //int fileNotExist = 0;
-    for(int i = startIndex; i < pipeFound; i++){
+    for(int i = startIndex; i < j->pipeFound; i++){
 
         if(strcmp(j->argv[i],">") == 0){
 
@@ -321,7 +323,7 @@ int doFileRedirectRightWithPipe(job* j, int endIndex){
     int fileInputRedirectCount = 0;
 
     int fileNotExist = 0;
-    for(int i = pipeFound + 1; i < endIndex; i++){
+    for(int i = j->pipeFound + 1; i < endIndex; i++){
 
         if(strcmp(j->argv[i],"<") == 0){
 
@@ -336,7 +338,7 @@ int doFileRedirectRightWithPipe(job* j, int endIndex){
 
     int indexCopy = 0;
     //int fileNotExist = 0;
-    for(int i = pipeFound + 1; i < endIndex; i++){
+    for(int i = j->pipeFound + 1; i < endIndex; i++){
 
         if(strcmp(j->argv[i],">") == 0){
 
@@ -714,161 +716,115 @@ void sigCHLDHandler(int signo){
 
         //printf("The pid I am looking for is %d\n",pid);
 
-        //terminated normally
-        if(WIFEXITED(status)){
+        //terminated normally or terminated with signal
+        if(WIFEXITED(status) || WIFSIGNALED(status)){
 
             //printf("WIFEXITTED\n");
 
-            //no pipe in command
-            if(pipeFound == -1){
+            //search for pid if in background
+            job* foundJob = searchForPID(pid);
+            //process is in background
+            if(foundJob != NULL){
 
-                //it was a background process
-                if(foregroundJob == NULL){
+                //printf("%d\n",foundJob->pipeFound);
+                
+                //background process does NOT have a pipe
+                if(foundJob->pipeFound == -1){
 
-                    job* foundJob = searchForPID(pid);
-                    //printf("BACKGROUND PROCESS DONE\n");
                     foundJob->state = DONE;
-
                 }
-                //it was a foreground process
+                //background process has a pipe and it found the left process
                 else {
 
-                    foregroundJob->noPipeFlag = 1;
-                    foregroundJob->state = DONE;
-                    tcsetpgrp(shellTerminal,getpgid(getpid()));
+                    foundJob->leftProcessState = DONE;
+                    if(foundJob->rightProcessState == DONE){
+
+                        //printf("BACKGROUND PIPE IS DONE\n");
+                        foundJob->state = DONE;
+                    }
                 }
             }
-            //there was a pipe in command
+            //could not find pgid in background so check in foreground or right side of background pipe
             else {
 
-                //it was a foreground process
+                //check foreground
                 if(foregroundJob != NULL){
 
-                    //if left process finished,set left pipe flag
-                    if(foregroundJob->leftProcessPID == pid){
+                    //foreground does NOT have a pipe
+                    if(foregroundJob->pipeFound == -1){
 
-                        foregroundJob->leftPipeFlag = 1;
-                    }
-                    //if right process finished,set right pipe flag
-                    if(foregroundJob->rightProcessPID == pid){
- 
-                        foregroundJob->rightPipeFlag = 1;
-                    }
-                    //if both flags are set,then give control back to shell
-                    if(foregroundJob->leftPipeFlag == 1 && foregroundJob->rightPipeFlag == 1){
-
+                        foregroundJob->noPipeFlag = 1;
+                        foregroundJob->state = DONE;
                         tcsetpgrp(shellTerminal,getpgid(getpid()));
+                        foregroundJob = NULL;
                     }
-                }
-                //it was a background process
-                else {
-
-                    job* foundJob = searchForLeftPID(pid);
-                    //printf("left process PID is %d\n",foundJob->leftProcessPID);
-                    if(foundJob != NULL){
-
-                        foundJob->leftProcessState = DONE;
-                    }
+                    //foreground HAS a pipe
                     else {
 
-                        foundJob = searchForRightPID(pid);
-                        if(foundJob != NULL){
+                        if(foregroundJob->leftProcessPID == pid){
 
-                            foundJob->rightProcessState = DONE;
+                            foregroundJob->leftPipeFlag = 1;
+                        }
+                        if(foregroundJob->rightProcessPID == pid){
+
+                            foregroundJob->rightPipeFlag = 1;
+                        }
+                        if(foregroundJob->leftPipeFlag == 1 && foregroundJob->rightPipeFlag == 1){
+
+                            tcsetpgrp(shellTerminal,getpgid(getpid()));
                         }
                     }
+                }
+                //if not a foreground and could not find pgid in background,check for right process
+                else {
 
-                    if(foundJob->leftProcessState == DONE && foundJob->rightProcessState == DONE){
+                    job* foundRight = searchForRightPID(pid);
+                    if(foundRight != NULL){
 
-                        //printf("PIPE DONE\n");
-                        foundJob->state = DONE;
-                        
+                        //printf("right process of pipe finished\n");
+                        foundRight->rightProcessState = DONE;
+                        if(foundRight->leftProcessState == DONE){
+
+                            //printf("BACKGROUND PIPE IS DONE\n");
+                            foundRight->state = DONE;
+                        }
                     }
-                    //printf("IT REACHES HERE\n");
-                    //printf("right process PID is %d\n",foundJob->rightProcessPID);
                     
-                    //printf("IT REACHES HERE\n");
-                    //exit(0);
-                    /*
-                    if(foundJob->leftProcessState == DONE && foundJobRight->rightProcessState == DONE){
-
-                        foundJob->state = DONE;
-                    }
-                    */
                 }
             }
                
         }
-        //stopped with CTRL-Z
+        //stopped by signal(CTRL-Z)
         if(WIFSTOPPED(status)){
 
-            //no pipe in command
-            if(pipeFound == -1){
+            if(foregroundJob != NULL){
 
-                //it was a background process
-                if(foregroundJob == NULL){
+                //no pipe
+                if(foregroundJob->pipeFound == -1){
 
-                    job* foundJob = searchForPID(pid);
-                    foundJob->state = STOPPED;
-                }
-                //it was a foreground process
-                else {
-
-                    foregroundJob->noPipeFlag = 1;
                     foregroundJob->state = STOPPED;
+                    foregroundJob->noPipeFlag = 1;
                     if(foregroundJob->hasAddedToList == 0){
 
                         addJob(foregroundJob);
                         foregroundJob->hasAddedToList = 1;
                     }
-                    //printf("ADDED STOPPED FOREGROUND PROCESS\n");
                     tcsetpgrp(shellTerminal,getpgid(getpid()));
-                    
-
                 }
-            }
-            //there was a pipe in command
-            else {
-
-                foregroundJob->leftPipeFlag = 1;
-                foregroundJob->rightPipeFlag = 1;
-                foregroundJob->state = STOPPED;
-                if(foregroundJob->hasAddedToList == 0){
-
-                    addJob(foregroundJob);
-                }
-                
-                tcsetpgrp(shellTerminal,getpgid(getpid()));
-            }
-        }
-        //terminated
-        if(WIFSIGNALED(status)){
-
-            //no pipe in command
-            if(pipeFound == -1){
-
-                //it was a background process
-                if(foregroundJob == NULL){
-
-                    job* foundJob = searchForPID(pid);
-                    foundJob->state = DONE;
-
-                }
-                //it was a foreground process
+                //there is pipe
                 else {
 
-                    foregroundJob->noPipeFlag = 1;
+                    foregroundJob->state = STOPPED;
+                    foregroundJob->leftPipeFlag = 1;
+                    foregroundJob->rightPipeFlag = 1;
+                    if(foregroundJob->hasAddedToList == 0){
+
+                        addJob(foregroundJob);
+                        foregroundJob->hasAddedToList = 1;
+                    }
                     tcsetpgrp(shellTerminal,getpgid(getpid()));
                 }
             }
-            //there is a pipe in command
-            else {
-
-                foregroundJob->leftPipeFlag = 1;
-                foregroundJob->rightPipeFlag = 1;
-                tcsetpgrp(shellTerminal,getpgid(getpid()));
-            }
-            
         }    
     }
 }
@@ -876,7 +832,7 @@ void sigCHLDHandler(int signo){
 void processCommand(job* j, int arglength, int pipefd[]){
 
     //if no pipe,just execute normally
-    if(pipeFound == -1){
+    if(j->pipeFound == -1){
 
         pid_t pid = fork();
         j->pgid = pid;
@@ -952,7 +908,7 @@ void doForeground(){
         else {
 
             //no pipe
-        if(pipeFound == -1){
+        if(sendToFG->pipeFound == -1){
 
             int i = 0;
             while(sendToFG->argv[i] != NULL){
@@ -1050,7 +1006,7 @@ void doBackground(){
         else {
 
             //if no pipe in command
-            if(pipeFound == -1){
+            if(sendToBg->pipeFound == -1){
 
                 //sendToBg->jobNumber = calculateJobNumber();
                 printf("[%d]+ RUNNING        ",sendToBg->jobNumber);
@@ -1069,6 +1025,26 @@ void doBackground(){
                 sendToBg->state = RUNNING;
                 sendToBg->isInBackground = 1;
                 kill(sendToBg->pgid,SIGCONT);
+            }
+            else {
+
+                printf("[%d]+ RUNNING        ",sendToBg->jobNumber);
+
+                int i = 0;
+                while(sendToBg->argv[i] != NULL){
+
+                    printf("%s ",sendToBg->argv[i]);
+
+                    if(sendToBg->argv[i+1] == NULL){
+
+                        printf("&\n");
+                    }
+                    i++;
+                }
+
+                sendToBg->state = RUNNING;
+                sendToBg->isInBackground = 1;
+                kill((-1) * (sendToBg->pgid),SIGCONT);
             }
         }  
     }
@@ -1239,7 +1215,7 @@ int main(){
 
     while(input = readline("# ")){
 
-        foregroundJob = NULL;
+        //foregroundJob = NULL;
 
         // noPipeFlag = 0;
         // leftPipeFlag = 0;
@@ -1272,7 +1248,7 @@ int main(){
             j->argv[arglength] = NULL;
 
             //see if the command has a pipe
-            pipeFound = checkForPipe(j->argv);
+            j->pipeFound = checkForPipe(j->argv);
 
             //printf("IT REACHES HERE\n");
             if(strcmp(j->argv[0],"jobs") == 0){
