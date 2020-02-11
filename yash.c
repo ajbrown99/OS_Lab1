@@ -705,6 +705,39 @@ job* searchForRightPID(pid_t pid){
     return temp;
 }
 
+job* search(pid_t pid){
+      
+    if(foregroundJob->leftProcessPID == pid){
+
+        return foregroundJob;
+    }
+    else if(foregroundJob->pipeFound != -1){
+
+        if(foregroundJob->rightProcessPID == pid){
+
+            return foregroundJob;
+        }
+    }
+    job* temp = head;
+    while(temp != NULL){
+        
+        if(temp->leftProcessPID == pid){
+
+            return temp;
+        }
+        else if(temp->pipeFound != -1){
+
+            if(temp->rightProcessPID == pid){
+
+                return temp;
+            }
+        }
+        temp = temp->next;
+    }
+    //neither foreground or background
+    return NULL;
+}
+
 void sigCHLDHandler(int signo){
 
     //WUNTRACED:child stopped
@@ -719,12 +752,110 @@ void sigCHLDHandler(int signo){
         //terminated normally or terminated with signal
         if(WIFEXITED(status) || WIFSIGNALED(status)){
 
+            //search for background job
+            job* foundJob = search(pid);
+            if(foundJob != NULL){
+
+                if(foundJob == foregroundJob){
+
+                    if(foundJob->pipeFound == -1){
+
+                        if(foundJob->leftProcessPID == pid){
+
+                            foundJob->state = DONE;
+                            foundJob->noPipeFlag = 1;
+                            tcsetpgrp(shellTerminal,getpgid(getpid()));
+                            
+                        }
+                    }
+                    else {
+
+                        if(foundJob->leftProcessPID == pid){
+
+                            foundJob->leftPipeFlag = 1;
+                        }
+                        if(foundJob->rightProcessPID == pid){
+
+                            foundJob->rightPipeFlag = 1;
+                        }
+
+                        if(foundJob->leftPipeFlag == 1 && foundJob->rightPipeFlag == 1){
+
+                            foundJob->state = DONE;
+                            tcsetpgrp(shellTerminal,getpgid(getpid()));
+                        }
+                    }
+                }
+                else {
+
+                    if(foundJob->pipeFound == -1){
+
+                        foundJob->state = DONE;
+                    }
+                    else {
+
+                        if(foundJob->leftProcessPID == pid){
+
+                            foundJob->leftProcessState = DONE;
+                        }
+                        if(foundJob->rightProcessPID == pid){
+
+                            foundJob->rightProcessState = DONE;
+                        }
+
+                        if(foundJob->leftProcessState == DONE && foundJob->rightProcessState == DONE){
+
+                            foundJob->state = DONE;
+                        }
+                    }
+                }
+            }
+            //if background job is finished and no pipe,set the job status to DONE
+            /*
+            if(foundJob != NULL){
+
+                    if(foundJob->leftProcessPID == pid){
+
+                        foundJob->leftProcessState = DONE;
+                    }
+                    if(foundJob->rightProcessPID == pid){
+
+                        foundJob->rightProcessState = DONE;
+                    }
+
+                    if(foundJob->leftProcessState == DONE && foundJob->rightProcessState == DONE){
+
+                        foundJob->state = DONE;
+                    }
+                }
+            }
+            else {
+
+                if(foregroundJob != NULL){
+
+                    if(foregroundJob->pipeFound == -1){
+
+                        if(foregroundJob->pgid == pid){
+
+                            foregroundJob->state = DONE;
+                            foregroundJob->noPipeFlag = 1;
+                            tcsetpgrp(shellTerminal,getpgid(getpid()));
+                            foregroundJob = NULL;
+                        }
+                    }
+                }
+            }
+            */
+            //if searchForPID returned NULL,then what could've happened is 
+            //a foreground process(pipe or no pipe) finished or the right side of the piped background finished 
+            /*
+
             //printf("WIFEXITTED\n");
 
             //search for pid if in background
             job* foundJob = searchForPID(pid);
             //process is in background
-            if(foundJob != NULL){
+            if(foundJob != NULL && foundJob->isInBackground == 1){
 
                 //printf("%d\n",foundJob->pipeFound);
                 
@@ -748,7 +879,7 @@ void sigCHLDHandler(int signo){
             else {
 
                 //check foreground
-                if(foregroundJob != NULL){
+                if(foregroundJob != NULL && foregroundJob->pgid == pid){
 
                     //foreground does NOT have a pipe
                     if(foregroundJob->pipeFound == -1){
@@ -771,6 +902,7 @@ void sigCHLDHandler(int signo){
                         }
                         if(foregroundJob->leftPipeFlag == 1 && foregroundJob->rightPipeFlag == 1){
 
+                            printf("IT REACHES HERE\n");
                             tcsetpgrp(shellTerminal,getpgid(getpid()));
                         }
                     }
@@ -792,7 +924,7 @@ void sigCHLDHandler(int signo){
                     
                 }
             }
-               
+             */  
         }
         //stopped by signal(CTRL-Z)
         if(WIFSTOPPED(status)){
@@ -809,6 +941,7 @@ void sigCHLDHandler(int signo){
                         addJob(foregroundJob);
                         foregroundJob->hasAddedToList = 1;
                     }
+                    foregroundJob = NULL;
                     tcsetpgrp(shellTerminal,getpgid(getpid()));
                 }
                 //there is pipe
@@ -822,6 +955,7 @@ void sigCHLDHandler(int signo){
                         addJob(foregroundJob);
                         foregroundJob->hasAddedToList = 1;
                     }
+                    foregroundJob = NULL;
                     tcsetpgrp(shellTerminal,getpgid(getpid()));
                 }
             }
@@ -836,6 +970,8 @@ void processCommand(job* j, int arglength, int pipefd[]){
 
         pid_t pid = fork();
         j->pgid = pid;
+        j->leftProcessPID = j->pgid;
+        j->rightProcessPID = -1;
         
         if(pid == 0){
             //child process
@@ -959,7 +1095,7 @@ void doForeground(){
                 sendToFG->isInBackground = 0;
                 sendToFG->state = RUNNING;
                 foregroundJob = sendToFG;
-                kill(sendToFG->pgid,SIGCONT);
+                kill((-1) * (sendToFG->pgid),SIGCONT);
                 //signal(SIGTTOU,SIG_IGN);
                 tcsetpgrp(shellTerminal,sendToFG->pgid);
                 sendToFG->leftPipeFlag = 0;
