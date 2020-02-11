@@ -706,18 +706,22 @@ job* searchForRightPID(pid_t pid){
 }
 
 job* search(pid_t pid){
-      
-    if(foregroundJob->leftProcessPID == pid){
+
+    if(foregroundJob != NULL){
+
+        if(foregroundJob->leftProcessPID == pid){
 
         return foregroundJob;
     }
     else if(foregroundJob->pipeFound != -1){
 
-        if(foregroundJob->rightProcessPID == pid){
+            if(foregroundJob->rightProcessPID == pid){
 
-            return foregroundJob;
+                return foregroundJob;
+            }
         }
     }
+      
     job* temp = head;
     while(temp != NULL){
         
@@ -1186,7 +1190,7 @@ void doBackground(){
     }
 }
 
-void displayDoneJobs(){
+void displayDoneJobs(char* input){
 
     if(head == NULL){
         //printf("No jobs in list to display\n");
@@ -1194,35 +1198,114 @@ void displayDoneJobs(){
     }
     else {
 
-        job* tempHeadOne = head;
-        job* findMostRecent = NULL;
-        while(tempHeadOne != NULL){
+        if(strcmp(input,"jobs") == 0){
 
-            if(tempHeadOne->state == RUNNING || tempHeadOne->state == STOPPED){
+            job* tempHeadOne = head;
+            job* findMostRecent = NULL;
+            while(tempHeadOne != NULL){
 
-                findMostRecent = tempHeadOne;
+                if(tempHeadOne->state == RUNNING || tempHeadOne->state == STOPPED){
+
+                    findMostRecent = tempHeadOne;
+                }
+                tempHeadOne = tempHeadOne->next;
             }
-            tempHeadOne = tempHeadOne->next;
+            if(findMostRecent != NULL){
+
+                job* tempHeadTwo = head;
+                while(tempHeadTwo != NULL){
+
+                    if(tempHeadTwo->state == DONE && tempHeadTwo->isInBackground == 1){
+
+                        printf("[%d]- DONE      ",tempHeadTwo->jobNumber);
+                        int i = 0;
+                        while(tempHeadTwo->argv[i] != NULL){
+
+                            printf("%s ",tempHeadTwo->argv[i]);
+                            if(tempHeadTwo->argv[i+1] == NULL){
+
+                                if(tempHeadTwo->isInBackground == 1){
+
+                                    printf("&\n");
+                                }
+                                else {
+
+                                    printf("\n");
+                                }
+                            }
+                            i++;
+                        }
+                    }
+                    tempHeadTwo = tempHeadTwo->next;
+                }
+            }
+            else {
+
+                job* tempHeadThree = head;
+                int plusDoneFlag = 0;
+                while(tempHeadThree != NULL){
+
+                    if(tempHeadThree->state == DONE && tempHeadThree->isInBackground == 1){
+
+                        printf("[%d]",tempHeadThree->jobNumber);
+                        if(plusDoneFlag == 0){
+
+                            printf("+ ");
+                            plusDoneFlag = 1;
+                        }
+                        else {
+
+                            printf("- ");
+                        }
+                        printf("DONE        ");
+                        int i = 0;
+                        while(tempHeadThree->argv[i] != NULL){
+
+                            printf("%s ",tempHeadThree->argv[i]);
+                            if(tempHeadThree->argv[i+1] == NULL){
+
+                                if(tempHeadThree->isInBackground == 1){
+
+                                    printf("&\n");
+                                }
+                                else {
+
+                                    printf("\n");
+                                }
+                            }
+                            i++;
+                        }
+                    }
+                    tempHeadThree = tempHeadThree->next;
+                }
+            }
         }
-        //if there are still running/stopped jobs
-        if(findMostRecent != NULL){
-            
-           // printf("%s\n",findMostRecent->argv[0]);
-            //printf("lol %p\n",findMostRecent);
-            job* tempHeadTwo = head;
+        else {
 
-            while(tempHeadTwo != NULL){
+            int plusDoneFlag = 0;
+            job* tempHeadFour = head;
+            while(tempHeadFour != NULL){
 
-                if(tempHeadTwo->state == DONE && tempHeadTwo->isInBackground == 1){
+                if(tempHeadFour->state == DONE && tempHeadFour->isInBackground == 1){
 
-                    printf("[%d]- DONE       ",tempHeadTwo->jobNumber);
+                    printf("[%d]",tempHeadFour->jobNumber);
+                    if(plusDoneFlag == 0){
+
+                        printf("+ ");
+                        plusDoneFlag = 1;
+                    }
+                    else {
+
+                        printf("- ");
+                    }
+                    printf("DONE        ");
                     int i = 0;
-                    while(tempHeadTwo->argv[i] != NULL){
+                    while(tempHeadFour->argv[i] != NULL){
 
-                        printf("%s ",tempHeadTwo->argv[i]);
-                        if(tempHeadTwo->argv[i+1] == NULL){
+                        printf("%s ",tempHeadFour->argv[i]);
+                        if(tempHeadFour->argv[i+1] == NULL){
 
-                            if(tempHeadTwo->isInBackground == 1){
+                            if(tempHeadFour->isInBackground == 1){
 
                                 printf("&\n");
                             }
@@ -1233,16 +1316,66 @@ void displayDoneJobs(){
                         }
                         i++;
                     }
-
                 }
-                tempHeadTwo = tempHeadTwo->next;
+                tempHeadFour = tempHeadFour->next;
             }
-         
         }
+    }
+    /*
+    else {
+        
+
+        if(strcmp(input,"jobs") == 0){
+
+            job* tempHeadOne = head;
+            job* findMostRecent = NULL;
+            while(tempHeadOne != NULL){
+
+                if(tempHeadOne->state == RUNNING || tempHeadOne->state == STOPPED){
+
+                    findMostRecent = tempHeadOne;
+                }
+                tempHeadOne = tempHeadOne->next;
+            }
+
+            //if there are still running/stopped jobs
+        if(findMostRecent != NULL){
+                //printf("lol %p\n",findMostRecent);
+                job* tempHeadTwo = head;
+
+                while(tempHeadTwo != NULL){
+
+                    if(tempHeadTwo->state == DONE && tempHeadTwo->isInBackground == 1){
+
+                        printf("[%d]- DONE       ",tempHeadTwo->jobNumber);
+                        int i = 0;
+                        while(tempHeadTwo->argv[i] != NULL){
+
+                            printf("%s ",tempHeadTwo->argv[i]);
+                            if(tempHeadTwo->argv[i+1] == NULL){
+
+                                if(tempHeadTwo->isInBackground == 1){
+
+                                    printf("&\n");
+                                }
+                                else {
+
+                                    printf("\n");
+                                }
+                            }
+                            i++;
+                        }
+
+                    }
+                    tempHeadTwo = tempHeadTwo->next;
+                }
+            
+            }
+
+        } 
         else {
 
             //printf("ONLY DONE JOBS\n");
-
             int plusDoneFlag = 0;
             job* tempHeadThree = head;
             while(tempHeadThree != NULL){
@@ -1284,6 +1417,7 @@ void displayDoneJobs(){
         }
                   
     }
+    */
     
 }
 
@@ -1357,8 +1491,8 @@ int main(){
         // leftPipeFlag = 0;
         // rightPipeFlag = 0;
 
-        displayDoneJobs();
-        removeDoneJobs(); 
+        // displayDoneJobs(input);
+        // removeDoneJobs(); 
 
         foregroundJobNumber = -1;
 
@@ -1378,6 +1512,8 @@ int main(){
         
         //parse the input into tokens
         int arglength = parseCommand(input, j);
+        displayDoneJobs(j->argv[0]);
+        removeDoneJobs();
         //arglength is 0 means just pressed enter key with no command
         if(arglength != 0){
 
