@@ -575,15 +575,15 @@ void displayJobs(){
 
         if(tempHeadTwo->state == RUNNING){
 
-            printf("RUNNING     ");
+            printf("Running     ");
         }
         else if(tempHeadTwo->state == STOPPED){
 
-            printf("STOPPED     ");
+            printf("Stopped     ");
         }
         else if(tempHeadTwo->state == DONE){
 
-            printf("DONE        ");
+            printf("Done        ");
         }
 
         int i = 0;
@@ -1149,7 +1149,7 @@ void doBackground(){
             if(sendToBg->pipeFound == -1){
 
                 //sendToBg->jobNumber = calculateJobNumber();
-                printf("[%d]+ RUNNING        ",sendToBg->jobNumber);
+                printf("[%d]+ Running        ",sendToBg->jobNumber);
 
                 int i = 0;
                 while(sendToBg->argv[i] != NULL){
@@ -1168,7 +1168,7 @@ void doBackground(){
             }
             else {
 
-                printf("[%d]+ RUNNING        ",sendToBg->jobNumber);
+                printf("[%d]+ Running        ",sendToBg->jobNumber);
 
                 int i = 0;
                 while(sendToBg->argv[i] != NULL){
@@ -1217,7 +1217,7 @@ void displayDoneJobs(char* input){
 
                     if(tempHeadTwo->state == DONE && tempHeadTwo->isInBackground == 1){
 
-                        printf("[%d]- DONE        ",tempHeadTwo->jobNumber);
+                        printf("[%d]- Done        ",tempHeadTwo->jobNumber);
                         int i = 0;
                         while(tempHeadTwo->argv[i] != NULL){
 
@@ -1257,7 +1257,7 @@ void displayDoneJobs(char* input){
 
                             printf("- ");
                         }
-                        printf("DONE        ");
+                        printf("Done        ");
                         int i = 0;
                         while(tempHeadThree->argv[i] != NULL){
 
@@ -1298,7 +1298,7 @@ void displayDoneJobs(char* input){
 
                         printf("- ");
                     }
-                    printf("DONE        ");
+                    printf("Done        ");
                     int i = 0;
                     while(tempHeadFour->argv[i] != NULL){
 
@@ -1507,6 +1507,12 @@ int main(){
         //if CTRL D is pressed,exit shell
         if(input == NULL){  
             //printf("\n");
+            job* killHead = head;
+            while(killHead != NULL){
+                
+                kill((-1)*(killHead->pgid),SIGKILL);
+                killHead = killHead->next;
+            }
             kill(getpgid(getpid()),SIGKILL);
         }
         
